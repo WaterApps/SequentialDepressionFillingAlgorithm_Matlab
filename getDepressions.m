@@ -1,8 +1,47 @@
-function[pits, pitId, pitCell, areaCellCount, spilloverElevation, spilloverTime, volume, filledVolume, outletCell, cellOverflowInto] = Pits(dem, drainage, flow_direction, flow_direction_parents, cellsize, rainfall_intensity)
-%This function identifies each unique pit with an ID number, creates a map
-%so each pit may be displayed with a different color, and generates a
-%matrix of pit data. Each pit is in a different row, and each row contains
-%the following information about the pit:
+function[pits, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, outletCell, cellOverflowInto] = getDepressions(dem, flow_direction, flow_direction_parents, cellsize)
+% Generate the matrix identifying depressions in the DEM as well as their
+% parameters. 
+%
+% Inputs: 
+%
+% dem - elevation matrix
+%
+% flow_direction - flow direction matrix
+%
+% flow_direction_parents - matrix of flow direction parents
+%
+% cellsize - side length of each cell, i.e., DEM resolution (meters).
+%
+% Outputs (each of the following is an array having a length of the number of
+% depressions found in the flow direction matrix operation. Each row
+% corresponds to a different depression. Each of these parameters are 
+% needed in order to provide consistent mergers of depressions in the 
+% filling process):
+%
+% pitId - The ID number assigned to the depression.
+% pitCell - The row and column of the pit cell found in the flow direction 
+% matrix.
+%
+% areaCellCount - Total contributing area expressed as the integer count of
+% cells. Multiply by the DEM cell area to get area in square meters.
+% spilloverElevation - The elevation which sets the maximum water level of 
+% the depression after which it will overflow.
+%
+% vca - Volume to Contributing Area (VCA) ratios for each depression, also 
+% equivalent to the depth of rainfall excess the depression can retain. 
+% This value is used to sort the depressions so that they may be filled in 
+% order. Computed using volume in cubic meters and area in square meters. 
+%
+% volume - The retention volumes for each depression (m^3).
+%
+% filledVolume - The volume (m^3) filled in previous iterations.
+%
+% outletCell - The row and column of the cell where water will begin to
+% overflow once the depression is filled.
+%
+% cellOverflowInto - The row and column of the cell in an adjacent
+% depression where water will begin to overflow into.
+
 [numrows, numcols] = size(dem);
 
 % Preallocate variables
@@ -12,7 +51,7 @@ pitId = int32(zeros(pit_count, 1));
 pitCell = int16(zeros(pit_count, 2));
 areaCellCount = zeros(pit_count, 1); % integer number of cells
 spilloverElevation = zeros(pit_count, 1); % meters
-spilloverTime = zeros(pit_count, 1); % hours
+vca = zeros(pit_count, 1); % hours
 volume = zeros(pit_count, 1); % cubic meters
 filledVolume = zeros(pit_count, 1); % cubic meters
 outletCell = int16(zeros(pit_count, 2));
@@ -180,10 +219,9 @@ for p = 1 : pit_count
         end
 
         filledVolume(p) = 0;     
-        spilloverTime(p) = volume(p)/((cellsize^2).*rainfall_intensity.*areaCellCount(p));
-   
-        if spilloverTime(p) < 0
-            spilloverTime(p) = Inf;
+        vca(p) = volume(p)/((cellsize^2).*areaCellCount(p));
+        if vca(p) < 0
+            vca(p) = Inf;
         end
     
         

@@ -1,20 +1,57 @@
-function[dem, flow_direction, flow_direction_parents, pits, rainfall_excess, runoff_areas, number_of_pits, mean_depth, std_depth, mean_area, std_area, instantaneous_area, storage_volume, runoff_volume] = fillPitsRecordData(dem, flow_direction, flow_direction_parents, pits, pitId, pitCell, areaCellCount, spilloverElevation, spilloverTime, volume, filledVolume, outletCell, cellOverflowInto, cellsize, rainfall_intensity, CedarCreekOutletPoint, R, dem_selection)
+function[dem, flow_direction, flow_direction_parents, pits, rainfall_excess, runoff_areas, number_of_pits, mean_depth, std_depth, mean_area, std_area, storage_volume, runoff_volume] = fillDepressionsCedarCreek(dem, flow_direction, flow_direction_parents, pits, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, outletCell, cellOverflowInto, CedarCreekOutletPoint, R, dem_selection)
+% Fill depressions in the CedarUpper DEMs. Generate output values and
+% images.
+%
+% Outputs: 
+% dem - elevation matrix
+%
+% flow_direction - flow direction matrix (see d8FlowDirection.m)
+%
+% flow_direction_parents - flow direction parent matrix (see
+% d8FlowDirection.m)
+%
+% pits - matrix identifying depressions (see getDepressions.m)
+%
+% rainfall_excess - The rainfall_excess value of each iteration (meters).
+%
+% runoff_areas - The contributing area of the Cedar Creek watershed at each
+% iteration (hectares).
+%
+% number_of_pits - Number of depressions remaining at each iteration.
+%
+% mean_depth - Mean vca across all remaining depressions (meters).
+%
+% std_depth - Standard deviation of the vca values of remaining
+% depressions (meters).
+%
+% mean_area - Mean area (hectares) of remaining depressions at each
+% iteration.
+%
+% std_area - Standard deviation of the areas of remaining depressions
+% (hectares)
+%
+% storage_volume - The total volume stored at each iteration (m^3).
+%
+% runoff_volume - The total volume that has run off at each iteration (m^3).
+
 %First, find the pit containing the Cedar Creek outlet, and set its
 %spillover time to infinity.  This will prevent it from overflowing into
 %other depressions. Only other depressions may overflow into it.
 cedarCreekPitId = pits(CedarCreekOutletPoint(1), CedarCreekOutletPoint(2));
 [cedarCreekPitIndex, ~] = find(pitId == cedarCreekPitId);
-spilloverTime(cedarCreekPitIndex) = Inf;
-dem_options = ['30m_'; '10m_'; '03m_'];
+vca(cedarCreekPitIndex) = Inf;
+rainfall_excess_frames = [0, 25, 75, 150, 300, 500, NaN]./1000; % meters
+rainfall_excess_frames_idx = 2;
+cellsize = R.CellExtentInWorldX; % DEM cellsize in meters
 
 % Order pits according to spillover time and initialize the current maximum
 % and minimum pit ID numbers
-[~, order] = sort(spilloverTime);
+[~, order] = sort(vca);
 pitId = pitId(order);
 pitCell = pitCell(order, :);
 areaCellCount = areaCellCount(order);
 spilloverElevation = spilloverElevation(order);
-spilloverTime = spilloverTime(order);
+vca = vca(order);
 volume = volume(order);
 filledVolume = filledVolume(order);
 outletCell = outletCell(order, :);
@@ -23,10 +60,7 @@ max_id = max(pitId);
 nonNanCount = nansum(nansum(~isnan(dem)));
 disp(strcat('Cells with defined values: ', num2str(nonNanCount)));
 
-rainfall_frames = [0, 25, 75, 150, 300, 500, NaN]./1000; % meters
-rainfall_frames_idx = 2;
-
-% Find the total potential iterations
+% Find the total number of iterations/merges
 potential_merges = max_id;
 % Preallocate arrays of variables that will be used in analysis
 rainfall_excess = zeros(potential_merges, 1); % meters
@@ -36,19 +70,17 @@ mean_depth = zeros(potential_merges, 1); % meters
 std_depth = zeros(potential_merges, 1); % meters
 mean_area = zeros(potential_merges, 1); % hectares
 std_area = zeros(potential_merges, 1); % hectares
-instantaneous_area = zeros(potential_merges, 1); % hectares
 storage_volume = zeros(potential_merges, 1); % cubic meters
 runoff_volume = zeros(potential_merges, 1); % cubic meters
 
-% Get result values before rainfall begins
+% Get initial values
 rainfall_excess(1) = 0;
-number_of_pits(1) = sum(~isnan(spilloverTime));
+number_of_pits(1) = sum(~isnan(vca));
 runoff_areas(1) = areaCellCount(cedarCreekPitIndex).*100./nonNanCount;
-mean_depth(1) = nanmean(spilloverTime)*rainfall_intensity;
-std_depth(1) = nanstd(spilloverTime)*rainfall_intensity;
+mean_depth(1) = nanmean(vca);
+std_depth(1) = nanstd(vca);
 mean_area(1) = nanmean(areaCellCount)*0.0001*cellsize^2;
 std_area(1) = nanstd(areaCellCount)*0.0001*cellsize^2;
-instantaneous_area(1) = areaCellCount(1)*0.0001*cellsize^2;
 runoff_volume(1) = 0;
 storage_volume(1) = 0; 
 
@@ -56,39 +88,25 @@ pitsColormap = rand(max(max(pits))+1, 3); % random color for every depression, p
 pitsColormap(1,:) = 1; % make pit ID 0 white
 RGB = ind2rgb(pits, pitsColormap);
 image(RGB);
-%imagesc(pits)
 axis equal;
 set(gca,'visible','off');
 set(gca,'position',[0 0 1 1], 'units', 'normalized');
 drawnow;
-imwrite(RGB, strcat(dem_options(dem_selection, :),num2str(1),'.png'));
-geotiffwrite(strcat(dem_options(dem_selection, :), num2str(1), '.tif'), pits, R, 'CoordRefSysCode', 26916);
+imwrite(RGB, strcat(dem_selection,num2str(1),'.png'));
+geotiffwrite(strcat(dem_selection, num2str(1), '.tif'), pits, R, 'CoordRefSysCode', 26916);
 
 idx = 2;
-while ~isnan(spilloverTime(2))
-    cur_rainfall_depth = spilloverTime(1)*rainfall_intensity;
-    rainfall_excess(idx) = cur_rainfall_depth;
-    instantaneous_area(idx) = areaCellCount(1)*0.0001*cellsize^2;
+while ~isnan(vca(2))
+    rainfall_excess(idx) = vca(1);
     second_pit_ID = pits(cellOverflowInto(1, 1), cellOverflowInto(1, 2));
     [numrows,numcols] = size(dem);
     [second_pit, ~] = find(pitId == second_pit_ID);
-        
-%     pitId(second_pit)
-%     pitCell(second_pit)
-%     areaCellCount(second_pit)
-%     spilloverElevation(second_pit)
-%     spilloverTime(second_pit)
-%     volume(second_pit)
-%     filledVolume(second_pit)
-%     outletCell(second_pit)
-%     cellOverflowInto(second_pit)
-    
+
     spilloverElevation(second_pit) = NaN;
     outletCell(second_pit, :) = [0, 0];
     cellOverflowInto(second_pit, :) = [0, 0];
-    
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    if isinf(spilloverTime(second_pit))
+
+    if isinf(vca(second_pit))
         % re-ID first pit, raise/fill first pit cells
         raisedPointsCount = 0;
         indicesToCheck = int16(zeros(areaCellCount(1), 2));
@@ -97,7 +115,6 @@ while ~isnan(spilloverTime(2))
         for i = 1 : size(indicesToCheck, 1)
             r = indicesToCheck(i, 1);
             c = indicesToCheck(i, 2);
-    %         puddle_dem(r,c, :) = [0, 0, 1];
             if (dem(r,c) <= spilloverElevation(1))
                 raisedPointsCount = raisedPointsCount + 1;
                 dem(r,c) = spilloverElevation(1);
@@ -386,20 +403,20 @@ while ~isnan(spilloverTime(2))
         end
 
         areaCellCount(second_pit) = areaCellCount(second_pit) +  areaCellCount(1);
-        spilloverTime(second_pit) = volume(second_pit)/(rainfall_intensity*areaCellCount(second_pit)*(cellsize^2));
+        vca(second_pit) = volume(second_pit)/(areaCellCount(second_pit).*(cellsize^2));
 
-        if spilloverTime(second_pit) < 0
-            spilloverTime(second_pit) = Inf;
+        if vca(second_pit) < 0
+            vca(second_pit) = Inf;
         end
     end
     
-    spilloverTime(1) = NaN;
-    [~, order] = sort(spilloverTime);
+    vca(1) = NaN;
+    [~, order] = sort(vca);
     pitId = pitId(order);
     pitCell = pitCell(order, :);
     areaCellCount = areaCellCount(order);
     spilloverElevation = spilloverElevation(order);
-    spilloverTime = spilloverTime(order);
+    vca = vca(order);
     volume = volume(order);
     filledVolume = filledVolume(order);
     outletCell = outletCell(order, :);
@@ -407,25 +424,25 @@ while ~isnan(spilloverTime(2))
     
     cedarCreekPitId = pits(CedarCreekOutletPoint(1), CedarCreekOutletPoint(2));
     [cedarCreekPitIndex, ~] = find(pitId == cedarCreekPitId);
-    number_of_pits(idx) = sum(~isnan(spilloverTime));
+    number_of_pits(idx) = sum(~isnan(vca));
     runoff_areas(idx) = areaCellCount(cedarCreekPitIndex).*0.0001;
-    mean_depth(idx) = nanmean(spilloverTime)*rainfall_intensity;
-    std_depth(idx) = nanstd(spilloverTime)*rainfall_intensity;
+    mean_depth(idx) = nanmean(vca);
+    std_depth(idx) = nanstd(vca);
     mean_area(idx) = nanmean(areaCellCount)*0.0001*cellsize^2;
     std_area(idx) = nanstd(areaCellCount)*0.0001*cellsize^2;
-    storage_volume(idx) = ((nonNanCount - areaCellCount(cedarCreekPitIndex))*cur_rainfall_depth*cellsize^2) + filledVolume(cedarCreekPitIndex);
-    runoff_volume(idx) = (areaCellCount(cedarCreekPitIndex)*cur_rainfall_depth*cellsize^2) - filledVolume(cedarCreekPitIndex);
+    storage_volume(idx) = ((nonNanCount - areaCellCount(cedarCreekPitIndex))*rainfall_excess(idx)*cellsize^2) + filledVolume(cedarCreekPitIndex);
+    runoff_volume(idx) = (areaCellCount(cedarCreekPitIndex)*rainfall_excess(idx)*cellsize^2) - filledVolume(cedarCreekPitIndex);
     
-    if (cur_rainfall_depth >= rainfall_frames(rainfall_frames_idx))
+    if (rainfall_excess(idx) >= rainfall_excess_frames(rainfall_excess_frames_idx))
         RGB = ind2rgb(pits, pitsColormap);
         image(RGB);
         axis equal;
         set(gca,'visible','off');
         set(gca,'position',[0 0 1 1], 'units', 'normalized');
         drawnow;
-        imwrite(RGB, strcat(dem_options(dem_selection, :), num2str(idx),'.png'));
-        geotiffwrite(strcat(dem_options(dem_selection, :), num2str(idx), '.tif'), pits, R, 'CoordRefSysCode', 26916);
-        rainfall_frames_idx = rainfall_frames_idx + 1;
+        imwrite(RGB, strcat(dem_selection, num2str(idx),'.png'));
+        geotiffwrite(strcat(dem_selection, num2str(idx), '.tif'), pits, R, 'CoordRefSysCode', 26916);
+        rainfall_excess_frames_idx = rainfall_excess_frames_idx + 1;
     end
     
     idx = idx + 1

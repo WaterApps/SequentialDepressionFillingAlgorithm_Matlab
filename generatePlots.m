@@ -1,6 +1,8 @@
-% thirty = load('CedarUpper_30m');
-% ten = load('CedarUpper_10m');
-% three = load('CedarUpper_03m');
+if exist('CedarUpper_30m', 'file')
+    thirty = load('CedarUpper_30m');
+end
+ten = load('CedarUpper_10m');
+three = load('CedarUpper_03m');
     
 close all;
 sum(~isnan(thirty.dem(:)))./length(thirty.rainfall_excess)
@@ -37,10 +39,6 @@ xlabel('Rainfall Excess (mm)');
 %Going to need some limits to the plot
 xlim([0, 500]);
 ylim([0, 100]);
-% a = [0, 25, 75, 150, 300, 500];
-% for i = 1 : length(a)
-%     plot([a(i), a(i)], [0, 110]);
-% end
 
 % Storage (m3)
 figure(3);
