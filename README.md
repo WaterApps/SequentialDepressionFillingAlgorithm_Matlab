@@ -66,4 +66,4 @@ This script fills depressions located in the DEM via `getDepressions.m` in an it
 This script is used to compute flow accumulation.
 
 # Manuscript Results Replication
-For manuscript-related details, see [here](https://github.com/WaterApps/SequentialDepressionFillingAlgorithm_Matlab/manuscript).
+For manuscript-related details, see [here](./manuscript.md).
