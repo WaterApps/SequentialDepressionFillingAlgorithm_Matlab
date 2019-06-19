@@ -67,3 +67,6 @@ This script is used to compute flow accumulation.
 
 # Manuscript Results Replication
 For manuscript-related details, see [here](./manuscript).
+
+#### License
+[Apache 2.0](./License.md)

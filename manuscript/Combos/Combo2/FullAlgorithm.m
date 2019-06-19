@@ -2,15 +2,19 @@ clear all;
 close all;
 profile -memory on;
 try 
+%% INPUTS
 dem_selection = 1; % choose DEM from above list "dem_options"
 dem_options = ['30m'; '10m'; '03m']; %correspond to files CedarUpper_30m.tif, CedarUpper_10m.tif, CedarUpper_03m.tif
 CedarUpperOutletPoints = [685, 470; % outlet point for 30m DEM
                           2052, 1410; % outlet point for 10m DEM
                           6841, 4696]; % outlet point for 3m DEM
-%% INPUTS
+if (ispc)
+  addpath('..\..\..\')
+else
+  addpath('../../../')
+end
 
 %%
-addpath('C:\Users\SamuelANoel\Documents\SequentialDepressionFilling')
 CedarUpperOutletPoint = CedarUpperOutletPoints(dem_selection, :);
 [dem, georef_info] = geotiffread(strcat('CedarUpper_', dem_options(dem_selection, :)));
 cellsize = georef_info.CellExtentInWorldX; % DEM cellsize in meters
