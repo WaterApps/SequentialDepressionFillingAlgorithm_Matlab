@@ -1,4 +1,4 @@
-function[] = sdfa(filepath, fillRainfallExcess);
+function[fill_dem, fill_flow_direction, fill_pits, fill_flow_accumulation] = sdfa(filepath, fillRainfallExcess);
 
   defaultFilePath = './Feldun.tif';
   defaultFillAmount = Inf;
@@ -14,8 +14,8 @@ function[] = sdfa(filepath, fillRainfallExcess);
   visualize_merging = false; % rendering slows the filling process
 
   %%
-  [dem, georef_info] = geotiffread(filepath);
-  cellsize = georef_info.CellExtentInWorldX; % DEM cellsize in meters
+  [dem, R] = geotiffread(filepath);
+  cellsize = R.CellExtentInWorldX; % DEM cellsize in meters
   disp(['DEM loaded...dimensions are: ', num2str(size(dem))]);
 
   %% The clipped DEMs have an assigned NaN value of -3.4028e38. Find and mark as matlab NaN.
@@ -35,15 +35,19 @@ function[] = sdfa(filepath, fillRainfallExcess);
   %% Identify Pits, Compute Matrix/Map with Pit ID for each cell
   disp('Creating Pit Dataset');
   [pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto] = ...
-      getDepressions(dem, flow_direction, flow_direction_parents, georef_info.CellExtentInWorldX);
+      getDepressions(dem, flow_direction, flow_direction_parents, R.CellExtentInWorldX);
 
   %% Fill Pits
-  [times, fill_dem, fill_flow_direction, fill_pits, rainfall_excess, number_of_pits] = ...
-      fillDepressions(fillRainfallExcess, dem, flow_direction, pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, georef_info, visualize_merging);
+  [fill_dem, fill_flow_direction, fill_pits] = ...
+      fillDepressions(fillRainfallExcess, dem, flow_direction, pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, R, visualize_merging);
 
   %% Flow Accumulation
   disp('Computing Flow Accumulation')
   [fill_flow_accumulation] = flowAccumulation(fill_flow_direction);
 
-  return [fill_dem, fill_flow_direction, fill_flow_direction_parents, fill_pits, fill_flow_accumulation]
+  [filepath, name, ext] = fileparts(filepath)
+  geotiffwrite(strcat(filepath,name, '_flowAccumulation.tif'), flow_accumulation, R);
+  geotiffwrite(strcat(filepath,name, '_fill_dem.tif'), fill_dem, R);
+  geotiffwrite(strcat(filepath,name, '_catchments.tif'), fill_pits, R);
+
 end
