@@ -89,6 +89,7 @@ imwrite(RGB, strcat(dem_selection,num2str(1),'.png'));
 geotiffwrite(strcat(dem_selection, num2str(1), '.tif'), pits, R, 'CoordRefSysCode', 26916);
 
 depthFlow = nan(size(dem));
+depthFlow(~isnan(dem)) = 0;
 idx = 2;
 fprintf('Filling depressions...')
 [~, first_pit] = min(vca);
@@ -129,7 +130,7 @@ while idx <= potential_merges
     filledVolume(second_pit) = volume(first_pit) + filledVolume(second_pit);
     volume(second_pit) = filledVolume(second_pit);
     
-    cellIndexes{second_pit} = [cellIndexes{second_pit}, cellIndexes{first_pit}];
+    cellIndexes{second_pit} = [cellIndexes{second_pit}; cellIndexes{first_pit}];
     lessThans = cellIndexes{second_pit}(dem(cellIndexes{second_pit}) <= spilloverElevation(second_pit));
 
     volume(second_pit) = volume(second_pit) + sum((spilloverElevation(second_pit) - dem(lessThans) )*cellsize*cellsize);
@@ -143,7 +144,7 @@ while idx <= potential_merges
     vca(first_pit) = NaN;
     cedarCreekPitId = pits(CedarCreekOutletPoint(1), CedarCreekOutletPoint(2));
     vca(cedarCreekPitId) = Inf;
-     
+
     cellIndexes{first_pit} = [];
     pairs{first_pit} = [];
     

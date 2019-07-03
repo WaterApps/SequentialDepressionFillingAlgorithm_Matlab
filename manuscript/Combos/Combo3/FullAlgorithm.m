@@ -80,6 +80,10 @@ disp('Computing Flow Accumulation')
 profile off;
 %profsave(profile('info'),strcat('ComboCacheCedarUpper_', dem_options(dem_selection, :), '_profile'));
 profile viewer;
+
+
+
+
 catch ME
     profile off
     rethrow(ME)
