@@ -1,5 +1,5 @@
 function[dem, flow_direction, pits, depthFlow, rainfall_excess, runoff] = ...
-    fillDepressions(fillRainfallExcess, dem, flow_direction, pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, R, visualize_merging)
+    fillDepressionsMovie(fillRainfallExcess, dem, flow_direction, pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, R, visualize_merging)
 % Fill depressions in the CedarUpper DEMs. Generate output values and
 % images.
 %
@@ -110,26 +110,26 @@ while (vca(first_pit) <= (fillRainfallExcess/1000)) && (idx <= potential_merges+
     cellIndexes{first_pit} = [];
     pairs{first_pit} = [];
     
-%      if (visualize_merging) && rainfall_excess(idx) > 0.018
-%          RGB = ind2rgb(pits, pitsColormap);
-%          image(RGB);
-%          axis equal;
-%          axis tight manual;
-%          set(gca,'visible','off');
-%          set(gca,'position',[0 0 1 1], 'units', 'normalized');
-%          drawnow;
-%          frame = getframe(a);
-%          im = frame2im(frame);
-%          [imind, cm] = rgb2ind(im, 256);
-%          if n == 1 
-%             imwrite(imind,cm,fi,'gif', 'Loopcount',inf, 'DelayTime', 0.1); 
-%          else 
-%             imwrite(imind,cm,fi,'gif','WriteMode','append'); 
-%          end
-%          n = n + 1;
-%      end
+     if (visualize_merging) && rainfall_excess(idx) > 0.018
+         RGB = ind2rgb(pits, pitsColormap);
+         image(RGB);
+         axis equal;
+         axis tight manual;
+         set(gca,'visible','off');
+         set(gca,'position',[0 0 1 1], 'units', 'normalized');
+         drawnow;
+         frame = getframe(a);
+         im = frame2im(frame);
+         [imind, cm] = rgb2ind(im, 256);
+         if n == 1 
+            imwrite(imind,cm,fi,'gif', 'Loopcount',inf, 'DelayTime', 0.1); 
+         else 
+            imwrite(imind,cm,fi,'gif','WriteMode','append'); 
+         end
+         n = n + 1;
+     end
     
-    idx = idx + 1
+    idx = idx + 1;
     [~, first_pit] = min(vca);
     second_pit = pits(cellOverflowInto(first_pit));
     times(idx-1) = toc(newTic);

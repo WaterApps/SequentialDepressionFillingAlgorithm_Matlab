@@ -129,7 +129,7 @@ while (vca(first_pit) <= (fillRainfallExcess/1000)) && (idx <= potential_merges+
 %          n = n + 1;
 %      end
     
-    idx = idx + 1
+    idx = idx + 1;
     [~, first_pit] = min(vca);
     second_pit = pits(cellOverflowInto(first_pit));
     times(idx-1) = toc(newTic);

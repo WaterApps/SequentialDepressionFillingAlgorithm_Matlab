@@ -34,12 +34,12 @@ function[fill_dem, fill_flow_direction, fill_pits, fill_flow_accumulation, depth
 
   %% Identify Pits, Compute Matrix/Map with Pit ID for each cell
   disp('Creating Pit Dataset');
-  [pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto] = ...
+  [pits, pairs, cellIndexes, pitId, pitCell, edgePitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, perimeterCell] = ...
       getDepressions(dem, flow_direction, flow_direction_parents, R.CellExtentInWorldX);
 
   %% Fill Pits
   [fill_dem, fill_flow_direction, fill_pits, depthFlow, rainfall_excess, runoff] = ...
-      fillDepressions(fillRainfallExcess, dem, flow_direction, pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, R, visualize_merging);
+      fillDepressionsMovieFlowAccumulation(fillRainfallExcess, dem, flow_direction, pits, pairs, cellIndexes, pitId, pitCell, edgePitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, perimeterCell, R, visualize_merging);
 
   %% Flow Accumulation
   disp('Computing Flow Accumulation')

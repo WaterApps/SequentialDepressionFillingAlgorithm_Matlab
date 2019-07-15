@@ -1,5 +1,5 @@
 function[dem, flow_direction, pits, depthFlow, rainfall_excess, runoff] = ...
-    fillDepressions(fillRainfallExcess, dem, flow_direction, pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, R, visualize_merging)
+    fillDepressionsMovie(fillRainfallExcess, dem, flow_direction, pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, perimeterCell, R, visualize_merging)
 % Fill depressions in the CedarUpper DEMs. Generate output values and
 % images.
 %
@@ -36,20 +36,25 @@ runoff = zeros(potential_merges, 1); % area in terms of cells!
 rainfall_excess(1) = 0;
 runoff(1) = sum(sum(pits < 0));
  
-%Setup GIF files
- a = figure(6);
- fi = 'catchments.gif';
- n = 1;
- pitsColormap = rand(max(max(pits))+1, 3); % random color for every depression, plus one for depression ID 0.
- pitsColormap(1,:) = 1; % make pit ID 0 white
- RGB = ind2rgb(pits, pitsColormap);
- image(RGB);
- axis equal;
- axis tight manual;
- set(gca,'visible','off');
- set(gca,'position',[0 0 1 1], 'units', 'normalized');
- drawnow;
- 
+%Setup Movie files
+vid = VideoWriter('catchments.mp4');
+open(vid);
+a = figure(6);
+n = 1;
+pitsColormap = rand(max(max(pits))+1, 3); % random color for every depression, plus one for depression ID 0.
+pitsColormap(1,:) = 1; % make pit ID 0 white
+RGB = ind2rgb(pits, pitsColormap);
+image(RGB);
+axis equal;
+axis tight manual;
+set(gca,'visible','off');
+set(gca,'position',[0 0 1 1], 'units', 'normalized');
+drawnow;
+F(n) = getframe(a);
+writeVideo(vid, F(n))
+
+
+
 depthFlow = nan(size(dem));
 idx = 2;
 fprintf('Filling depressions...')
@@ -68,7 +73,15 @@ while (vca(first_pit) <= (fillRainfallExcess/1000)) && (idx <= potential_merges+
     dem(lessThanSpillover) = spilloverElevation(first_pit); % raise DEM
 
     %update flow directions
-    flow_direction(pitCell(first_pit)) = cellOverflowInto(first_pit);
+    %flow_direction(pitCell(first_pit)) = cellOverflowInto(first_pit);
+    previousCell = cellOverflowInto{first_pit};
+    curCell = perimeterCell{first_pit};
+    while flow_direction(curCell) > 0
+        nextCell = flow_direction(curCell); % store the old flow direction;
+        flow_direction(curCell) = previousCell; % set the new flow direction;
+        previousCell = curCell; % advance for the next iteration
+        curCell = nextCell; % advance for the next iteration
+    end
 
     pits([cellIndexes{first_pit}]) = second_pit; % update pit matrix
         
@@ -110,26 +123,20 @@ while (vca(first_pit) <= (fillRainfallExcess/1000)) && (idx <= potential_merges+
     cellIndexes{first_pit} = [];
     pairs{first_pit} = [];
     
-%      if (visualize_merging) && rainfall_excess(idx) > 0.018
-%          RGB = ind2rgb(pits, pitsColormap);
-%          image(RGB);
-%          axis equal;
-%          axis tight manual;
-%          set(gca,'visible','off');
-%          set(gca,'position',[0 0 1 1], 'units', 'normalized');
-%          drawnow;
-%          frame = getframe(a);
-%          im = frame2im(frame);
-%          [imind, cm] = rgb2ind(im, 256);
-%          if n == 1 
-%             imwrite(imind,cm,fi,'gif', 'Loopcount',inf, 'DelayTime', 0.1); 
-%          else 
-%             imwrite(imind,cm,fi,'gif','WriteMode','append'); 
-%          end
-%          n = n + 1;
-%      end
+    if (visualize_merging) && rainfall_excess(idx) > 0.018
+        RGB = ind2rgb(pits, pitsColormap);
+        image(RGB);
+        axis equal;
+        axis tight manual;
+        set(gca,'visible','off');
+        set(gca,'position',[0 0 1 1], 'units', 'normalized');
+        drawnow;
+        F(n) = getframe(a);
+        writeVideo(vid, F(n))
+        n = n + 1;
+    end
     
-    idx = idx + 1
+    idx = idx + 1;
     [~, first_pit] = min(vca);
     second_pit = pits(cellOverflowInto(first_pit));
     times(idx-1) = toc(newTic);
