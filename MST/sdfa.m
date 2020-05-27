@@ -45,8 +45,7 @@ function[fill_dem, fill_flow_direction, fill_pits, fill_flow_accumulation, depth
   %% Flow Accumulation
   disp('Computing Flow Accumulation')
   [fill_flow_accumulation] = flowAccumulation(fill_flow_direction);
-  profile viewer;
-profile off;
+
   [fpath, name, ext] = fileparts(filepath)
   ginfo = geotiffinfo(filepath);
   tag = ginfo.GeoTIFFTags.GeoKeyDirectoryTag
@@ -56,5 +55,6 @@ profile off;
   geotiffwrite(strcat(fpath, filesep, name, '_flowAccumulation.tif'), fill_flow_accumulation, R, 'GeoKeyDirectoryTag', tag);
   geotiffwrite(strcat(fpath, filesep, name, '_fill_dem.tif'), fill_dem, R, 'GeoKeyDirectoryTag', tag);
   geotiffwrite(strcat(fpath, filesep, name, '_catchments.tif'), fill_pits, R, 'GeoKeyDirectoryTag', tag);
-
+profile off;
+profsave(profile('info'), strcat(fpath, filesep, name, 'profile'));
 end
