@@ -1,4 +1,4 @@
-function[pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto] = getDepressions(dem, flow_direction, flow_direction_parents, cellsize)
+function[pits, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, pairs, cellIndexes] = getDepressions(dem, flow_direction, flow_direction_parents, cellsize)
 % Generate the matrix identifying depressions in the DEM as well as their
 % parameters. 
 %
@@ -44,11 +44,8 @@ disp('Creating Pit Database');
 
 pits = nan(size(dem)); % matrix identifying pits
 pit_count = sum(nansum(flow_direction == -1));
-edge_pits = int32(find(flow_direction == -2));
 pitId = int32(1 : pit_count); % id of each pit
-edgePitId = int32(-1 : -1 : (-1*length(edge_pits)-1));
 pitCell = int32(find(flow_direction == -1)); % pit bottom cell index
-edgePitCell = int32(find(flow_direction == -2));
 areaCellCount = zeros(pit_count, 1); % integer number of cells
 spilloverElevation = zeros(pit_count, 1); % meters
 vca = zeros(pit_count, 1); % volume to contributing area ratio (hours)
@@ -90,43 +87,18 @@ for p = 1 : length(pitCell)
         i = i+1;
     end
     cellIndexes{p}(j+1:end) = [];
-    areaCellCount(p) =j;
+    areaCellCount(p) = j;
 end
 
-for p = 1 : length(edgePitCell)
-    j = 1; % current length of cellIndexes{p}
-    i = 1; % iterator
-    chunk = 50;
-    indexes = nan(chunk, 1);
-    indexes(1) = edgePitCell(p);
-    while i <= j
-        parents = flow_direction_parents{indexes(i)};
-        pits(parents) = -1.*p;
-        k = j + length(parents);
-        if (k > chunk)
-            indexes(chunk+1:chunk+50) = zeros(50, 1);
-            chunk = chunk + 50;
-        end
-        indexes(j+1 : k) = parents;
-        j = k;
-        i = i+1;
-    end
-end
 fprintf('\n');
 fprintf('Gathering data for each pit...');
 
 indexes = reshape(1: numel(flow_direction), size(flow_direction));
 pairs = cell(pit_count, 1);
 [numrows, numcols] = size(dem);
-lookup = sparse(pit_count, pit_count);
-graph = cell(pit_count);
-graphData = (pit_count, 3);
-g = 1;
-
-for p = 1 : length(cellIndexes)
+parfor p = 1 : length(cellIndexes)
     pairs{p} = zeros(length(cellIndexes{p})*8, 2);
     l = 1;
-    lookupIdx = 0;
     for i = 1 : length(cellIndexes{p}) % walk through indicesToCheck
         [r, c] = ind2sub(size(pits), cellIndexes{p}(i));
         % First, loop over 3x3 neighborhood to find indicesToCheck
@@ -147,32 +119,11 @@ for p = 1 : length(cellIndexes)
                 if pits(neighbor) ~= pits(curCell)
                     pairs{p}(l, 1) = min([neighbor, curCell]); % lines are always oriented starting at lowest linear index
                     pairs{p}(l, 2) = max([neighbor, curCell]);
-                    
-                    minPit = min([pits(neighbor), pits(curCell)]);
-                    maxPit = max([pits(neighbor), pits(curCell)]);
-                    if (~lookup(minPit, maxPit))
-                        lookup(minPit, minPit) = g;
-                        g = g+1;
-                        if (mod(g,50) == 0)
-                            graph(g:g+50) = cell(50,2);
-                        end
-                    end
-                    lookupIdx = lookup(minPit, maxPit);
-                    graph{lookupIdx}(l,1) = min([neighbor, curCell]);
-                    graph{lookupIdx}(l, 2) = max([neighbor, curCell]);
-                    
                     l = l+1;
                 end
             end
         end
     end
-    
-    graph{lookupIdx} = graph{lookupIdx}(any(graph{lookupIdx}, 2), :); % trim zero rows
-    graph{lookupIdx} = sortrows(graph{lookupIdx}, [1,2]);
-    [v, o] = min(max(dem(graph{lookupIdx}(:, 1:2)), [], 2)); % get minimum spillover elevation
-    graphData(lookupIdx) = [graph{lookupIdx}, graph
-    passElevation = v;
-    passCellOverflowInto = graph{lookupIdx}(o, pits(graph{lookupIdx}(o, :)) ~= lookupIdx);
     
     pairs{p} = pairs{p}(any(pairs{p}, 2), :); % trim zero rows
     pairs{p} = sortrows(pairs{p}, [1,2]);

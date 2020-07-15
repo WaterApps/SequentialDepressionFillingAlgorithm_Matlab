@@ -12,7 +12,7 @@ function[fill_dem, fill_flow_direction, fill_pits, fill_flow_accumulation, depth
     fillRainfallExcess = Inf;
   end
 
-  visualize_merging = true; % rendering slows the filling process
+  visualize_merging = false; % rendering slows the filling process
 
   %%
   [dem, R] = geotiffread(filepath);
@@ -35,12 +35,12 @@ function[fill_dem, fill_flow_direction, fill_pits, fill_flow_accumulation, depth
 
   %% Identify Pits, Compute Matrix/Map with Pit ID for each cell
   disp('Creating Pit Dataset');
-  [pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, directedGraph] = ...
-      getDepressionsMatlabGraph(dem, flow_direction, flow_direction_parents, R.CellExtentInWorldX);
+  [pits, spillovers, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, edges] = ...
+      getDepressionsMatlabGraph(dem, flow_direction, flow_direction_parents, R.CellExtentInWorldX, []);
 
   %% Fill Pits
   [fill_dem, fill_flow_direction, fill_pits, depthFlow, rainfall_excess, runoff] = ...
-      fillDepressionsMatlabGraph(fillRainfallExcess, dem, flow_direction, pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, R, visualize_merging, directedGraph);
+      fillDepressionsMatlabGraph(fillRainfallExcess, dem, flow_direction, pits, spillovers, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, R, visualize_merging, edges);
 
   %% Flow Accumulation
   disp('Computing Flow Accumulation')

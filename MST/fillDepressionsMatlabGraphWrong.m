@@ -1,5 +1,5 @@
 function[dem, flow_direction, pits, depthFlow, rainfall_excess, runoff] = ...
-    fillDepressionsMatlabGraph(fillRainfallExcess, dem, flow_direction, pits, spillovers, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, R, visualize_merging, edges)
+    fillDepressionsMatlabGraph(fillRainfallExcess, dem, flow_direction, pits, pairs, cellIndexes, pitId, pitCell, areaCellCount, spilloverElevation, vca, volume, filledVolume, cellOverflowInto, R, visualize_merging, edges)
 % Fill depressions in the CedarUpper DEMs. Generate output values and
 % images.
 %
@@ -76,12 +76,6 @@ while (vca(first_pit) <= (fillRainfallExcess/1000)) && (idx <= potential_merges+
     flow_direction(pitCell(first_pit)) = cellOverflowInto(first_pit);
 
     pits([cellIndexes{first_pit}]) = second_pit; % update pit matrix
-
-
-    % Find spillover elevation and location; append pairs, prune, and find
-    spillovers{second_pit} = [spillovers{first_pit}; spillovers{second_pit}];
-    spillovers{second_pit} = spillovers{second_pit}(any(pits(spillovers{second_pit}) ~= second_pit, 2), :);
-    [val, ord] = min(max(dem(spillovers{second_pit}(:, 1:2)), [], 2));
         
     % handle pits now connected to the edge of the DEM
     if (second_pit < length(cellIndexes))
@@ -92,20 +86,25 @@ while (vca(first_pit) <= (fillRainfallExcess/1000)) && (idx <= potential_merges+
             times(idx-1) = toc(newTic);
             break;
         end
-
-        spilloverElevation(second_pit) = val;
-        cellOverflowInto(second_pit) = spillovers{second_pit}(ord, pits(spillovers{second_pit}(ord, :)) ~= second_pit);
+        
+        spilloverElevation(second_pit) = edges(second_pit, 3);
+        cellOverflowInto(second_pit) = edges(second_pit, 5);
 
         % compute filled volume and initialize volume calculation (more below)
-        filledVolume(second_pit) = volume(first_pit) + filledVolume(second_pit);
+        
         volume(second_pit) = filledVolume(second_pit);
-
-        cellIndexes{second_pit} = [cellIndexes{second_pit}; cellIndexes{first_pit}];
-        lessThans = cellIndexes{second_pit}(dem(cellIndexes{second_pit}) <= spilloverElevation(second_pit));
-
-        volume(second_pit) = volume(second_pit) + sum((spilloverElevation(second_pit) - dem(lessThans) )*cellsize*cellsize);
-        lessThans = [];
-
+        if (spilloverElevation(second_pit) < spilloverElevation(first_pit))
+            volume(second_pit) = volume(second_pit) + volume(first_pit);
+            filledVolume(second_pit) = volume(first_pit) + filledVolume(second_pit);
+        else
+            filledVolume(second_pit) = volume(first_pit) + filledVolume(second_pit);
+            volume(second_pit) = filledVolume(second_pit);
+            cellIndexes{second_pit} = [cellIndexes{second_pit}; cellIndexes{first_pit}];
+            lessThans = cellIndexes{second_pit}(dem(cellIndexes{second_pit}) <= spilloverElevation(second_pit));
+            volume(second_pit) = volume(second_pit) + sum((spilloverElevation(second_pit) - dem(lessThans) )*cellsize*cellsize);
+            lessThans = [];
+        end
+        
         vca(second_pit) = volume(second_pit)/((cellsize^2).*areaCellCount(second_pit));
         if vca(second_pit) < 0
             vca(second_pit) = Inf;
@@ -114,6 +113,25 @@ while (vca(first_pit) <= (fillRainfallExcess/1000)) && (idx <= potential_merges+
   
     vca(first_pit) = NaN;     
     cellIndexes{first_pit} = [];
+    
+%      if (visualize_merging) && rainfall_excess(idx) > 0.018
+%          RGB = ind2rgb(pits, pitsColormap);
+%          image(RGB);
+%          axis equal;
+%          axis tight manual;
+%          set(gca,'visible','off');
+%          set(gca,'position',[0 0 1 1], 'units', 'normalized');
+%          drawnow;
+%          frame = getframe(a);
+%          im = frame2im(frame);
+%          [imind, cm] = rgb2ind(im, 256);
+%          if n == 1 
+%             imwrite(imind,cm,fi,'gif', 'Loopcount',inf, 'DelayTime', 0.1); 
+%          else 
+%             imwrite(imind,cm,fi,'gif','WriteMode','append'); 
+%          end
+%          n = n + 1;
+%      end
     
     idx = idx + 1;
     [~, first_pit] = min(vca);

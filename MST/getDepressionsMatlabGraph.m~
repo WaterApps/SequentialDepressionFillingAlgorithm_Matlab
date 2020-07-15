@@ -169,7 +169,7 @@ parfor p = 1 : pit_count
                     curMin = adjacents{p}(entry, 5);
                     if (maxOverflow < curMin)
                         adjacents{p}(entry, 3:5) = [curCell, neighbor, maxOverflow];
-                        spillovers{p}(entry,:) = [curCell, neighbor]
+                        adjacents{p}(entry, ) = [curCell, neighbor]
                     end
                 end
             end
